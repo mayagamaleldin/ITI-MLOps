@@ -186,6 +186,9 @@ cython_debug/
 # PyPI configuration file
 .pypirc
 
+# hydra outputs directory
+outputs/
+
 # pickle files of the model
 *.pickle
 *.pkl
