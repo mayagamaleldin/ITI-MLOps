@@ -1,0 +1,24 @@
+stages:
+  process_data:
+    cmd: uv run python src/training/process_data.py --params_path conf/dvc/params.yaml
+    deps:
+    - data/raw/Iris.csv
+    outs:
+    - data/processed/Iris-train.parquet
+    - data/processed/Iris-test.parquet
+  train:
+    cmd: uv run python src/training/trainer.py --params_path conf/dvc/params.yaml
+    deps:
+    - data/processed/Iris-train.parquet
+    - data/processed/Iris-test.parquet
+    outs:
+    - models/fake/model_target_translator.pkl
+    - models/fake/final_model.pkl
+  evaluate:
+    cmd: uv run python evaluate.py --params_path conf/dvc/params.yaml
+    deps:
+    - data/processed/Iris-test.parquet
+    - models/fake/final_model.pkl
+    - models/fake/model_target_translator.pkl
+    outs:
+    - reports/fake/evaluation_report.json
