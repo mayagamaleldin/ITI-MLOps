@@ -1,6 +1,6 @@
 stages:
   process_data:
-    cmd: uv run python src/process_data.py
+    cmd: uv run python src/training/process_data.py
     deps:
     - data/raw/Iris.csv
     outs:
@@ -38,7 +38,7 @@ stages:
     - model.target_column
     - model.trained_model_path
   evaluate:
-    cmd: uv run python evaluate.py
+    cmd: uv run python src/training/evaluate.py
     deps:
     - data/processed/Iris-test.parquet
     - models/fake/final_model.pkl
