@@ -1,5 +1,6 @@
 # Data
-/data/
+# comment the following lines, let dvc manage artifacts
+#/data/
 
 # Mac OS-specific storage files
 .DS_Store
@@ -191,13 +192,15 @@ outputs/
 multirun/
 
 # pickle files of the model
-*.pickle
-*.pkl
+# comment the following lines, let dvc manage artifacts
+#*.pickle
+#*.pkl
 
 # training pipeline artifacts of evaluation
-reports/*/*.json
-reports/*/*.csv
-reports/*/*.png
-reports/*/*.pdf
-reports/*/*.html
-reports/*/*.txt
+# comment the following lines, let dvc manage artifacts
+#reports/*/*.json
+#reports/*/*.csv
+#reports/*/*.png
+#reports/*/*.pdf
+#reports/*/*.html
+#reports/*/*.txt

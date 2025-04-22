@@ -1,24 +1,40 @@
 import json
 import os
 import pickle
+from typing import Any, Dict
 
-from omegaconf import DictConfig
+import dvc.api
+import pandas as pd
 from skore import EstimatorReport
 
+from src.logger import ExecutorLogger
 
-def evaluate(X_test, y_test, cfg: DictConfig, logger) -> None:
+
+def evaluate(cfg: Dict[str, Any], logger) -> None:
     logger.info("loading model")
+    test_df = pd.read_parquet(
+        os.path.join(
+            cfg["evaluate"]["processed_data_path"],
+            f"{cfg['evaluate']['file_name']}-test.parquet",
+        )
+    )
+    X_test, y_test = (
+        test_df.drop(cfg["evaluate"]["target_column"], axis=1),
+        test_df[cfg["evaluate"]["target_column"]],
+    )
     with open(
         os.path.join(
-            cfg.evaluate.model_path, cfg.evaluate.model_name, "final_model.pkl"
+            cfg["evaluate"]["model_path"],
+            cfg["evaluate"]["model_name"],
+            "final_model.pkl",
         ),
         "rb",
     ) as pkl:
         final_model = pickle.load(pkl)
     with open(
         os.path.join(
-            cfg.evaluate.model_path,
-            cfg.evaluate.model_name,
+            cfg["evaluate"]["model_path"],
+            cfg["evaluate"]["model_name"],
             "model_target_translator.pkl",
         ),
         "rb",
@@ -28,7 +44,7 @@ def evaluate(X_test, y_test, cfg: DictConfig, logger) -> None:
     final_report = EstimatorReport(final_model, X_test=X_test, y_test=y_test_enc)
     logger.info("creating evaluation report")
     evaluation_report = {
-        "model_name": cfg.evaluate.model_name,
+        "model_name": cfg["evaluate"]["model_name"],
         "estimator_name": final_report.estimator_name_,
         "fitting_time": final_report.fit_time_,
         "accuracy": final_report.metrics.accuracy(),
@@ -38,13 +54,27 @@ def evaluate(X_test, y_test, cfg: DictConfig, logger) -> None:
     }
     logger.info("saving evaluation report")
     if not os.path.exists(
-        os.path.join(cfg.evaluate.reports_path, cfg.evaluate.model_name)
+        os.path.join(cfg["evaluate"]["reports_path"], cfg["evaluate"]["model_name"])
     ):
-        os.makedirs(os.path.join(cfg.evaluate.reports_path, cfg.evaluate.model_name))
+        os.makedirs(
+            os.path.join(cfg["evaluate"]["reports_path"], cfg["evaluate"]["model_name"])
+        )
     with open(
         os.path.join(
-            cfg.evaluate.reports_path, cfg.evaluate.model_name, "evaluation_report.json"
+            cfg["evaluate"]["reports_path"],
+            cfg["evaluate"]["model_name"],
+            "evaluation_report.json",
         ),
         "w",
     ) as js:
         json.dump(evaluation_report, js, indent=4)
+
+
+if __name__ == "__main__":
+    logger = ExecutorLogger("dvc-training")
+    cfg = dvc.api.params_show()
+    logger.info(
+        "Paramsters: \n"
+        f"{cfg['evaluate']}"
+    )
+    evaluate(cfg, logger)
