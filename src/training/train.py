@@ -3,15 +3,19 @@ import pickle
 from functools import partial
 from typing import Any, Dict
 
+import dagshub
 import dvc.api
 import numpy as np
 import pandas as pd
+import mlflow
 from hyperopt import STATUS_OK, Trials, fmin, hp, tpe
 from hyperopt.pyll import scope
 from sklearn.model_selection import cross_validate
+from dotenv import load_dotenv
 
 from src.fake.estimator import FakeEstimator
 from src.logger import ExecutorLogger
+from src.training.model_wrapper import ModelWrapper
 
 
 def encode_target_col(
@@ -71,7 +75,14 @@ def objective(params: Dict[str, Any], X, y, n_folds: int) -> Dict[str, Any]:
     return {"loss": score, "params": params, "status": STATUS_OK}
 
 
-def trainer(X, y, cfg: Dict[str, Any], logger) -> None:
+def setup_mlflow(tracking_uri: str, logger):
+    mlflow.set_tracking_uri(tracking_uri)
+    client = mlflow.client.MlflowClient(tracking_uri=tracking_uri)
+    logger.info("MLFlow Client Defined and tracking URI Setted Successfully.")
+    return client
+
+
+def trainer(X, y, cfg: Dict[str, Any], logger):
     SPACE = {
         cfg["model"]["optimization_params"]["hyperparameter_search"]["random_state"][
             "name"
@@ -123,31 +134,90 @@ def trainer(X, y, cfg: Dict[str, Any], logger) -> None:
         np.argmin([r["loss"] for r in bayes_trials.results])
     ]
     params = best_model["params"]
-    final_model = FakeEstimator(**params)
-    final_model.fit(X, y_train_enc)
-    logger.info("save the final optimized model")
-    if not os.path.exists(
-        os.path.join(cfg["model"]["model_path"], cfg["model"]["model_name"])
-    ):
-        os.makedirs(
+    with mlflow.start_run():
+        mlflow.autolog()
+        final_model = FakeEstimator(**params)
+        final_model.fit(X, y_train_enc)
+        logger.info("save the final optimized model")
+        if not os.path.exists(
             os.path.join(cfg["model"]["model_path"], cfg["model"]["model_name"])
+        ):
+            os.makedirs(
+                os.path.join(
+                    cfg["model"]["model_path"], 
+                    cfg["model"]["model_name"]
+                )
+            )
+        with open(
+            os.path.join(
+                cfg["model"]["model_path"], 
+                cfg["model"]["model_name"], 
+                "final_model.pkl"
+            ),
+            "wb",
+        ) as pkl:
+            pickle.dump(final_model, pkl)
+        logger.info("model trained and saved successfully")
+        run_id = mlflow.active_run().info.run_id
+        train_preds = final_model.predict(X)
+        signature = mlflow.models.infer_signature(X, train_preds)
+        mlflow.pyfunc.log_model(
+            cfg["model"]["model_name"], 
+            python_model=ModelWrapper(),
+            artifacts={ 
+                'encoder': os.path.join(
+                    cfg["model"]["model_path"],
+                    cfg["model"]["model_name"],
+                    "model_target_translator.pkl",
+                ),
+                'model': os.path.join(
+                    cfg["model"]["model_path"], 
+                    cfg["model"]["model_name"], 
+                    "final_model.pkl"
+                )
+            },
+            signature=signature
         )
-    with open(
-        os.path.join(
-            cfg["model"]["model_path"], cfg["model"]["model_name"], "final_model.pkl"
-        ),
-        "wb",
-    ) as pkl:
-        pickle.dump(final_model, pkl)
-    logger.info("model trained and saved successfully")
+        mlflow.log_params(params)
+        mlflow.log_metrics({
+            f"cv_{cfg['model']['optimization_params']['scoring']}_score": best_model["loss"]
+        })
+        artifact_path = "model"
+        model_uri = f"runs:/{run_id}/{artifact_path}"
+
+        model_details = mlflow.register_model(
+            model_uri=model_uri, 
+            name=cfg["model"]["model_name"]
+        )
+        logger.info("Model registered successfully!!")
+
+        return model_details, run_id
+
+
+def move_model_to_prod(client, model_details, logger) -> None:
+    client.transition_model_version_stage(
+        name=model_details.name,
+        version=model_details.version,
+        stage="production",
+    )
+    logger.info("Model transitioned to prod stage")
 
 
 if __name__ == "__main__":
     logger = ExecutorLogger("dvc-training")
+    load_dotenv(".env")
     cfg = dvc.api.params_show()
     logger.info(
         "Paramsters: \n"
         f"{cfg['model']}"
     )
+    dagshub.auth.add_app_token(token=os.getenv("DAGSHUB_TOKEN"))
+    dagshub.init(
+        repo_owner=os.getenv("DAGSHUB_USERNAME"), 
+        repo_name=cfg["model"]["repo_name"], 
+        mlflow=cfg["model"]["use_mlflow"]
+    )
+    client = setup_mlflow(cfg["model"]["tracking_uri"], logger)
     X_train, y_train, X_test, y_test = encode_target_col(cfg, logger)
-    trainer(X_train, y_train, cfg, logger)
+    model_details, run_id = trainer(X_train, y_train, cfg, logger)
+    move_model_to_prod(client, model_details, logger)

@@ -23,6 +23,9 @@ stages:
     - models/fake/final_model.pkl
     - models/fake/model_target_translator.pkl
     params:
+    - model.tracking_uri
+    - model.repo_name
+    - model.use_mlflow
     - model.file_name
     - model.model_name
     - model.model_path
