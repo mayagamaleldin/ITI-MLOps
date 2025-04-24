@@ -176,7 +176,8 @@ def trainer(X, y, cfg: Dict[str, Any], logger):
                     "final_model.pkl"
                 )
             },
-            signature=signature
+            signature=signature,
+            registered_model_name=cfg["model"]["model_name"],
         )
         mlflow.log_params(params)
         mlflow.log_metrics({

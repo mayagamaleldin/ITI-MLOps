@@ -44,7 +44,7 @@ stages:
         model.optimization_params.hyperparameter_search.random_state.max: 80
         model.optimization_params.hyperparameter_search.random_state.min: 2
         model.optimization_params.hyperparameter_search.random_state.name: random_state
-        model.optimization_params.hyperparameter_search.random_state.step: 3
+        model.optimization_params.hyperparameter_search.random_state.step: 1
         model.optimization_params.hyperparameter_search.random_state.type: int
         model.optimization_params.max_evals: 10
         model.optimization_params.n_folds: 5
@@ -58,7 +58,7 @@ stages:
     outs:
     - path: models/fake/final_model.pkl
       hash: md5
-      md5: 2a6f208699252cfc80fe1c37517e218a
+      md5: 7f208939deeefd4ccabd7d19fbe4decc
       size: 5606
     - path: models/fake/model_target_translator.pkl
       hash: md5
@@ -73,7 +73,7 @@ stages:
       size: 4804
     - path: models/fake/final_model.pkl
       hash: md5
-      md5: 2a6f208699252cfc80fe1c37517e218a
+      md5: 7f208939deeefd4ccabd7d19fbe4decc
       size: 5606
     - path: models/fake/model_target_translator.pkl
       hash: md5
@@ -87,9 +87,10 @@ stages:
         evaluate.processed_data_path: data/processed
         evaluate.reports_path: reports
         evaluate.target_column: Species
+        evaluate.tracking_uri: https://dagshub.com/Ezzaldin97/ITI-MLOps.mlflow
         evaluate.trained_model_path: models/fake
     outs:
     - path: reports/fake/evaluation_report.json
       hash: md5
-      md5: e89425d4902e7b6f8f4d21d37215afc0
-      size: 406
+      md5: 0758c26e040ae5393783054c092a04c8
+      size: 136

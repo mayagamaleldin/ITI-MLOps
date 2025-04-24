@@ -49,6 +49,7 @@ stages:
     outs:
     - reports/fake/evaluation_report.json
     params:
+    - evaluate.tracking_uri
     - evaluate.file_name
     - evaluate.model_name
     - evaluate.model_path

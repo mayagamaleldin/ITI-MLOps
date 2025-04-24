@@ -27,8 +27,9 @@ model:
         type: int
         min: 2
         max: 80
-        step: 3
+        step: 1
 evaluate:
+  tracking_uri: https://dagshub.com/Ezzaldin97/ITI-MLOps.mlflow
   processed_data_path: data/processed
   file_name: Iris
   target_column: Species

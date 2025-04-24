@@ -4,13 +4,23 @@ import pickle
 from typing import Any, Dict
 
 import dvc.api
+import dagshub
 import pandas as pd
-from skore import EstimatorReport
+import mlflow
+from sklearn.metrics import accuracy_score, precision_score, recall_score
+from dotenv import load_dotenv
 
 from src.logger import ExecutorLogger
 
 
-def evaluate(cfg: Dict[str, Any], logger) -> None:
+def setup_mlflow(tracking_uri: str, logger):
+    mlflow.set_tracking_uri(tracking_uri)
+    client = mlflow.client.MlflowClient(tracking_uri=tracking_uri)
+    logger.info("MLFlow Client Defined and tracking URI Setted Successfully.")
+    return client
+
+
+def evaluate(client, cfg: Dict[str, Any], logger) -> None:
     logger.info("loading model")
     test_df = pd.read_parquet(
         os.path.join(
@@ -26,31 +36,22 @@ def evaluate(cfg: Dict[str, Any], logger) -> None:
         os.path.join(
             cfg["evaluate"]["model_path"],
             cfg["evaluate"]["model_name"],
-            "final_model.pkl",
-        ),
-        "rb",
-    ) as pkl:
-        final_model = pickle.load(pkl)
-    with open(
-        os.path.join(
-            cfg["evaluate"]["model_path"],
-            cfg["evaluate"]["model_name"],
             "model_target_translator.pkl",
         ),
         "rb",
     ) as pkl:
         translator = pickle.load(pkl)
     y_test_enc = y_test.apply(lambda x: translator["encoder"][x])
-    final_report = EstimatorReport(final_model, X_test=X_test, y_test=y_test_enc)
+    version = client.get_latest_versions(name=cfg["evaluate"]["model_name"])[0].version
+    final_model = mlflow.pyfunc.load_model(
+        model_uri=f"models:/{cfg['evaluate']['model_name']}/{version}"
+    )
     logger.info("creating evaluation report")
     evaluation_report = {
         "model_name": cfg["evaluate"]["model_name"],
-        "estimator_name": final_report.estimator_name_,
-        "fitting_time": final_report.fit_time_,
-        "accuracy": final_report.metrics.accuracy(),
-        "precision": final_report.metrics.precision(),
-        "recall": final_report.metrics.recall(),
-        "prediction_time": final_report.metrics.timings(),
+        "accuracy": accuracy_score(y_test_enc, final_model.predict(X_test)),
+        "precision": precision_score(y_test_enc, final_model.predict(X_test), average="micro"),
+        "recall": recall_score(y_test_enc, final_model.predict(X_test), average="micro"),
     }
     logger.info("saving evaluation report")
     if not os.path.exists(
@@ -72,9 +73,17 @@ def evaluate(cfg: Dict[str, Any], logger) -> None:
 
 if __name__ == "__main__":
     logger = ExecutorLogger("dvc-training")
+    load_dotenv(".env")
     cfg = dvc.api.params_show()
     logger.info(
         "Paramsters: \n"
         f"{cfg['evaluate']}"
     )
-    evaluate(cfg, logger)
+    dagshub.auth.add_app_token(token=os.getenv("DAGSHUB_TOKEN"))
+    dagshub.init(
+        repo_owner=os.getenv("DAGSHUB_USERNAME"), 
+        repo_name=cfg["model"]["repo_name"], 
+        mlflow=cfg["model"]["use_mlflow"]
+    )
+    client = setup_mlflow(cfg["evaluate"]["tracking_uri"], logger)
+    evaluate(client, cfg, logger)
