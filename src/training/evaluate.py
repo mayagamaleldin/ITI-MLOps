@@ -43,15 +43,16 @@ def evaluate(client, cfg: Dict[str, Any], logger) -> None:
         translator = pickle.load(pkl)
     y_test_enc = y_test.apply(lambda x: translator["encoder"][x])
     version = client.get_latest_versions(name=cfg["evaluate"]["model_name"])[0].version
+    logger.info(f"Model Production version: {version}")
     final_model = mlflow.pyfunc.load_model(
         model_uri=f"models:/{cfg['evaluate']['model_name']}/{version}"
     )
     logger.info("creating evaluation report")
     evaluation_report = {
         "model_name": cfg["evaluate"]["model_name"],
-        "accuracy": accuracy_score(y_test_enc, final_model.predict(X_test)),
-        "precision": precision_score(y_test_enc, final_model.predict(X_test), average="micro"),
-        "recall": recall_score(y_test_enc, final_model.predict(X_test), average="micro"),
+        "accuracy": accuracy_score(y_test, final_model.predict(X_test)),
+        "precision": precision_score(y_test, final_model.predict(X_test), average="micro"),
+        "recall": recall_score(y_test, final_model.predict(X_test), average="micro"),
     }
     logger.info("saving evaluation report")
     if not os.path.exists(

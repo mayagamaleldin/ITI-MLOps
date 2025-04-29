@@ -9,4 +9,5 @@ class ModelWrapper(PythonModel):
             self._model = pickle.load(f)
 
     def predict(self, context: PythonModelContext, data):
-        return self._model.predict(data)
+        preds = self._model.predict(data)
+        return [self._encoder['decoder'][val] for val in preds]
