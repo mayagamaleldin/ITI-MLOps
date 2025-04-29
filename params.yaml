@@ -8,6 +8,9 @@ data:
   test_size: 0.15
   random_state: 42
 model:
+  tracking_uri: https://dagshub.com/Ezzaldin97/ITI-MLOps.mlflow
+  repo_name: ITI-MLOps
+  use_mlflow: True
   processed_data_path: data/processed
   file_name: Iris
   target_column: Species
@@ -26,6 +29,7 @@ model:
         max: 80
         step: 1
 evaluate:
+  tracking_uri: https://dagshub.com/Ezzaldin97/ITI-MLOps.mlflow
   processed_data_path: data/processed
   file_name: Iris
   target_column: Species
