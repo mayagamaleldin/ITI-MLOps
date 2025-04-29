@@ -204,3 +204,6 @@ multirun/
 #reports/*/*.pdf
 #reports/*/*.html
 #reports/*/*.txt
+
+# mlflow
+mlruns/
