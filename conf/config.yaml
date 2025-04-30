@@ -1,2 +1,16 @@
-defaults:
-  - pipeline: iris.yaml
+# conf/config.yaml
+
+path: "data/raw/train.csv"
+model_output: "models/predictor.pkl"
+
+split:
+  test_size: 0.2
+  random_state: 42
+
+model:
+  target: "random_forest"  # or "logistic_regression"
+  logistic_regression:
+    max_iter: 1000
+  random_forest:
+    n_estimators: 100
+    random_state: 42
