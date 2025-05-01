@@ -207,3 +207,5 @@ multirun/
 
 # mlflow
 mlruns/
+/metrics.json
+/outputs
